@@ -1,6 +1,6 @@
 # HWTGen
 ## NYU-Information Technology Projects-2021 Summer-NYPL Group
-### Group memeber: Anci Hu, Ke Shi, Yuze Gong, Vipul Goyal
+### Group memeber: Anci Hu, Ke Shi, Yuze Gong
 ### Professor: Jean-Claude Franchitti
 ### Teaching Assistant: Joanna Gilberti
 HWTGen, a machine-driven and crowd-rescoured meta-learning system to recognize cursive handwriting collections.
