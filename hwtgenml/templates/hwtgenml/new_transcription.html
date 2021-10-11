@@ -1,0 +1,28 @@
+{% extends "hwtgenapp/base.html" %}
+{% load static %}
+{% block title %} HWTGen {% endblock %}
+{% block content %}
+    <div class="container">
+        <div class="form_card">
+            <p class="title">New Caption</p>
+            <p class="subtitle">New Caption.</p>
+            <form id="upload_form" method="POST" action="#"
+                  enctype="multipart/form-data">
+                {% csrf_token %}
+                <div>
+                    <label for="newCaption" class="form-label">Collection</label>
+                    <select class="form-control" id="newCaption" name="collection_name" required>
+                        <option selected disabled value="">Choose...</option>
+                        {% for collection in collections %}
+                            <option>{{ collection.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <button class="btn btn-primary" type="submit">Submit</button>
+                    <button class="btn btn-primary" type="reset">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}
