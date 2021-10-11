@@ -36,8 +36,8 @@ class Collection(models.Model):
     # description = models.CharField(max_length=250)
     estimated_time = models.CharField(max_length=250)
     is_new = models.BooleanField(default=True)
-    create_time = models.DateTimeField(auto_now_add=True)
-    update_time = models.DateTimeField(auto_now=True)
+    create_time = models.DateTimeField(auto_now_add=True, editable=True)
+    update_time = models.DateTimeField(auto_now=True, editable=True)
 
 
 def upload_to(instance, filename):
@@ -66,8 +66,8 @@ class BoostrapModel(models.Model):
     sol = models.FileField(upload_to='BoostrapModels')
     lf = models.FileField(upload_to='BoostrapModels')
     estimated_time = models.CharField(max_length=250, editable=False)
-    create_time = models.DateTimeField(auto_now_add=True)
-    update_time = models.DateTimeField(auto_now=True)
+    create_time = models.DateTimeField(auto_now_add=True, editable=True)
+    update_time = models.DateTimeField(auto_now=True, editable=True)
 
 
 class UserModel(models.Model):
@@ -80,8 +80,8 @@ class UserModel(models.Model):
     lf = models.FileField(upload_to='UserModels')
     estimated_time = models.CharField(max_length=250, editable=False)
     is_open = models.BooleanField(default=None, null=True, blank=True)
-    create_time = models.DateTimeField(auto_now_add=True)
-    update_time = models.DateTimeField(auto_now=True)
+    create_time = models.DateTimeField(auto_now_add=True, editable=True)
+    update_time = models.DateTimeField(auto_now=True, editable=True)
 
 
 def model_upload_to(instance, filename):
@@ -100,6 +100,19 @@ class CollectionText(models.Model):
     initial_text = models.TextField()
 
 
+class TestCaption(models.Model):
+    name = models.CharField(max_length=250)
+    user = models.ForeignKey(to=User, related_name='test_captions', on_delete=models.CASCADE, db_constraint=False)
+    estimated_time = models.CharField(default='calculating',max_length=250)
+
+
+class TestCaptionImage(models.Model):
+    caption = models.ForeignKey(to=TestCaption, related_name='images', on_delete=models.CASCADE, db_constraint=False)
+    image = models.ImageField(upload_to='TestImages')
+    recognized_text = models.TextField(default='')
+
+
+
 # class SubCaption(models.Model):
 #     caption = models.ForeignKey(to=Caption, on_delete=models.CASCADE, db_constraint=False, related_name='sub_captions')
 #     confidence_level = models.FloatField(default=0)
@@ -110,6 +123,7 @@ class CaptionImage(models.Model):
     image = models.ForeignKey(to=CollectionImage, on_delete=models.CASCADE, db_constraint=False,
                               related_name='captions')
     recognized_text = models.TextField()
+    original_confidence_level = models.IntegerField(default=None,null=True,blank=True)
     confidence_level = models.IntegerField(default=0)
     initial_text = models.TextField()
     # accuracy = models.CharField(max_length=250, default='', null=True, blank=True)

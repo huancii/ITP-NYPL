@@ -11,10 +11,10 @@
                 {% csrf_token %}
                 <div>
                     <label for="updateCollection" class="form-label">Collection to update</label>
-                    <select class="form-control" name="collection_name" id="updateCollection" required>
+                    <select class="form-control" name="collection" id="updateCollection" required>
                         <option selected disabled value="">Choose...</option>
                         {% for collection in collections %}
-                            <option>{{ collection.name }}</option>
+                            <option value="{{ collection }}">{{ collection.title }}</option>
                         {% endfor %}
                     </select>
                 </div>

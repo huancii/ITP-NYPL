@@ -178,12 +178,14 @@ def choose_collection_online(request):
 def download_images(request):
     auth = '9o3m4fb9yb7wv800'
     uuid = eval(request.POST.get('collection'))['uuid']
+    print(uuid)
     collection = Collection()
     collection.user = request.user
     collection.name = eval(request.POST.get('collection'))['title']
     collection.estimated_time = "calculating..."
     collection.save()
     tasks.download_images.delay(collection=collection, user=request.user, uuid=uuid)
+    # tasks.download_images(collection=collection, user=request.user, uuid=uuid)
     return HttpResponseRedirect(reverse('monitor_collection'))
 
 
@@ -213,15 +215,24 @@ def upload_images(request):
 def update_collection(request):
     if request.user.is_anonymous:
         return HttpResponseRedirect(reverse('login'))
-    collections = Collection.objects.filter(user=request.user).values('name')
+    collections = request.session['nypl_titles']
     response = render(request, 'hwtgenml/update_collection.html', {"collections": collections})
     response.status_code = 200
     return response
 
 
 def update_images(request):
-    collection = Collection.objects.get(name=request.POST.get('collection_name'))
-    tasks.update_image.delay(collection=collection)
+    uuid = eval(request.POST.get('collection'))['uuid']
+    name = eval(request.POST.get('collection'))['title']
+    user = request.user
+    print(name)
+    try:
+        collection = Collection.objects.get(name=name)
+        collection.is_new = False
+        collection.save()
+    except:
+        return HttpResponseRedirect(reverse('monitor_collection'))
+    tasks.update_image.delay(collection=collection, uuid=uuid, user=user)
     return HttpResponseRedirect(reverse('monitor_collection'))
 
 
@@ -320,7 +331,7 @@ def choose_model(request):
         model.save()
         caption, b = Caption.objects.get_or_create(name=collection_name,
                                                    collection=Collection.objects.get(name=collection_name))
-        tasks.start_test(collection=caption.collection, caption=caption, b=b, model=model)
+        tasks.start_test.delay(collection=caption.collection, caption=caption, b=b, model=model)
     return HttpResponseRedirect(reverse('monitor_model'))
 
 
@@ -389,7 +400,7 @@ def new_caption(request):
     if request.user.is_anonymous:
         return HttpResponseRedirect(reverse('login'))
     collections = Collection.objects.filter(user=request.user)
-    response = render(request, 'hwtgenml/new_caption.html',
+    response = render(request, 'hwtgenml/new_transcription.html',
                       {'collections': collections, 'caption_exists': request.session.get('caption_exists')})
     request.session['caption_exists'] = False
     response.status_code = 200
@@ -433,7 +444,7 @@ def update_caption_threshold(request):
     caption_name = request.POST.get('caption_name')
     response = render(request, 'hwtgenml/update_caption_threshold.html',
                       {'caption': Caption.objects.get(name=caption_name),
-                       'thresholds': [str(i) + "%" for i in sorted(list(range(0, 100, 10)), reverse=True)]})
+                       'thresholds': [str(i) + "%" for i in sorted(list(range(10, 110, 10)), reverse=True)]})
     response.status_code = 200
     return response
 
@@ -441,16 +452,16 @@ def update_caption_threshold(request):
 def make_exist_caption(request):
     # sub_caption_id = request.POST.get("sub_caption_id")
     # sub_caption = SubCaption.objects.get(id=sub_caption_id)
-    try:
-        caption_id = request.POST.get('caption_id')
-        threshold = int(request.POST.get('threshold').strip('%'))
-    except:
+    if request.method == 'GET':
         caption_id = request.GET.get('caption_id')
         threshold = int(request.GET.get('threshold'))
+    else:
+        caption_id = request.POST.get('caption_id')
+        threshold = int(request.POST.get('threshold').strip('%'))
     caption = Caption.objects.get(id=caption_id)
 
     caption_images = caption.images.filter(
-        Q(confidence_level__gte=threshold) & Q(confidence_level__lte=threshold + 10)).order_by('image__name')
+        Q(confidence_level__gte=threshold - 10) & Q(confidence_level__lte=threshold)).order_by('image__name')
     paginator = Paginator(caption_images, 8)
     page_num = request.GET.get('page', '1')
     try:
@@ -465,6 +476,10 @@ def make_exist_caption(request):
         lastButOne = Page.paginator.num_pages - 1
     else:
         ifEllipsis = 0
+        range1 = range(1, len(caption_images))
+        range2 = None
+        range3 = None
+        lastButOne = Page.paginator.num_pages - 1
     response = render(request, 'hwtgenml/change_caption.html',
                       {'threshold': threshold,
                        'Page': Page,
@@ -490,7 +505,7 @@ def change_caption(request):
     caption = caption_image.caption
     caption_id = caption.id
     caption_images = caption.images.filter(
-        Q(confidence_level__gte=threshold) & Q(confidence_level__lte=threshold + 10)).order_by('image__name')
+        Q(confidence_level__gte=threshold - 10) & Q(confidence_level__lte=threshold)).order_by('image__name')
     paginator = Paginator(caption_images, 8)
     page_num = request.POST.get('page', '1')
     try:
@@ -505,6 +520,10 @@ def change_caption(request):
         lastButOne = Page.paginator.num_pages - 1
     else:
         ifEllipsis = 0
+        range1 = range(1, len(caption_images))
+        range2 = None
+        range3 = None
+        lastButOne = Page.paginator.num_pages - 1
     response = render(request, 'hwtgenml/change_caption.html',
                       {'threshold': threshold,
                        'Page': Page,
@@ -592,3 +611,153 @@ def add_images(request):
         collection_image.file_path = File(im)
         collection_image.save()
     return HttpResponse('success')
+
+
+def new_transcription(request):
+    if request.user.is_anonymous:
+        return HttpResponseRedirect(reverse('login'))
+    collections = Collection.objects.all()
+    response = render(request, 'hwtgenml/new_transcription.html',
+                      {'collections': collections})
+    response.status_code = 200
+    return response
+
+
+def test_transcription(request):
+    if request.user.is_anonymous:
+        return HttpResponseRedirect(reverse('login'))
+    response = render(request, 'hwtgenml/test_transcription.html')
+    response.status_code = 200
+    return response
+
+
+def test_transcription_start(request):
+    caption_name = request.POST.get('caption_name')
+    files = request.FILES.getlist('test_images')
+    if len(TestCaption.objects.filter(name=caption_name)):
+        return HttpResponseRedirect(reverse('test_transcription'))
+    model = UserModel.objects.first()
+    caption = TestCaption()
+    caption.name = caption_name
+    caption.user = request.user
+    caption.save()
+    for file in files:
+        if not file.name.startswith('.'):
+            caption_image = TestCaptionImage()
+            caption_image.image = file
+            caption_image.caption = caption
+            caption_image.save()
+    tasks.start_upload_test.delay(model=model, caption=caption)
+    return HttpResponseRedirect(reverse('view_transcription'))
+
+
+def view_transcription(request):
+    if request.user.is_anonymous:
+        return HttpResponseRedirect(reverse('login'))
+    response = render(request, 'hwtgenml/view_transcription.html', {"test_captions": TestCaption.objects.all()})
+    response.status_code = 200
+    return response
+
+
+def view_transcription_detail(request):
+    if request.method == 'GET':
+        caption_id = request.GET.get('caption_id')
+    else:
+        caption_id = request.POST.get('caption_id')
+    caption = TestCaption.objects.get(id=caption_id)
+    images = caption.images.all()
+    paginator = Paginator(images, 8)
+    page_num = request.GET.get('page', '1')
+    try:
+        Page = paginator.page(page_num)
+    except(PageNotAnInteger, EmptyPage, InvalidPage):
+        Page = paginator.page('1')
+    if Page.paginator.num_pages >= 13:
+        ifEllipsis = 1
+        range1 = range(1, 13)
+        range2 = range(1, 15)
+        range3 = range(1, 14)
+        lastButOne = Page.paginator.num_pages - 1
+    else:
+        ifEllipsis = 0
+        range1 = range(1, len(images))
+        range2 = None
+        range3 = None
+        lastButOne = Page.paginator.num_pages - 1
+    response = render(request, 'hwtgenml/view_transcription_detail.html',
+                      {
+                          'caption': caption,
+                          'Page': Page,
+                          'caption_id': caption_id,
+                          'pagerange': paginator.page_range,
+                          'ifEllipsis': ifEllipsis,
+                          'range1': range1,
+                          'range2': range2,
+                          'range3': range3,
+                          'lastButOne': lastButOne,
+                      })
+    response.status_code = 200
+    return response
+
+
+def report_transcription(request):
+    if request.user.is_anonymous:
+        return HttpResponseRedirect(reverse('login'))
+    captions = Caption.objects.all()
+    response = render(request, 'hwtgenml/report_transcription.html',
+                      {'captions': captions})
+    response.status_code = 200
+    return response
+
+
+def report_transcription_detail(request):
+    if request.method == 'GET':
+        caption_id = request.GET.get('caption_id')
+        threshold = request.GET.get('threshold')
+    else:
+        caption_id = request.POST.get('caption_id')
+        threshold = request.POST.get('threshold')
+    caption = Caption.objects.get(id=caption_id)
+    if threshold != 'None' and threshold is not None:
+        caption_images = caption.images.filter(confidence_level=int(threshold))
+    else:
+        caption_images = caption.images.all().order_by('image__name')
+    paginator = Paginator(caption_images, 8)
+    page_num = request.GET.get('page', '1')
+    try:
+        Page = paginator.page(page_num)
+    except(PageNotAnInteger, EmptyPage, InvalidPage):
+        Page = paginator.page('1')
+    if Page.paginator.num_pages >= 13:
+        ifEllipsis = 1
+        range1 = range(1, 13)
+        range2 = range(1, 15)
+        range3 = range(1, 14)
+        lastButOne = Page.paginator.num_pages - 1
+    else:
+        ifEllipsis = 0
+        range1 = range(1, len(caption_images))
+        range2 = None
+        range3 = None
+        lastButOne = Page.paginator.num_pages - 1
+    response = render(request, 'hwtgenml/report_transcription_detail.html',
+                      {
+                          'Page': Page,
+                          'threshold': threshold,
+                          'pagerange': paginator.page_range,
+                          'caption_id': caption_id,
+                          'ifEllipsis': ifEllipsis,
+                          'range1': range1,
+                          'range2': range2,
+                          'range3': range3,
+                          'lastButOne': lastButOne,
+                      })
+    response.status_code = 200
+    return response
+
+
+def reset_original_confidence_level(request):
+    images = CaptionImage.objects.all()
+    for im in tqdm(images):
+        im.original_confidence_level = im.confidence_level
+        im.save()

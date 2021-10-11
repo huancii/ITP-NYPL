@@ -21,7 +21,7 @@
                 {% csrf_token %}
                 <div>
                     <input style="display: none" name="caption_id" value="{{ caption.id }}">
-                    <label for="updateCaption" class="form-label">Caption</label>
+                    <label for="updateCaption" class="form-label">Confidence Level Threshold</label>
                     <select class="form-control" id="updateCaption" name="threshold" required>
                         <option selected disabled value="">Choose...</option>
                         {% for threshold in thresholds %}
